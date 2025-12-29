@@ -1,0 +1,65 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.idea/
+*.iml
+*.swp
+*.swo
+.vscode/
+
+# Build outputs
+build/
+out/
+dist/
+*.class
+*.jar
+
+# Test sources and outputs
+test/
+*.log
+
+# Temporary and local files
+tmp/
+temp/
+*.tmp
+.local/
+local/
+
+# Environment and secrets
+.env*
+*.env
+*.pem
+*.key
+*.crt
+config.local.*
+*.local.yml
+
+# Documentation
+*.md
+HELP.md
+README*
+docs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node/Python/Go (not present, but for safety)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+/vendor/
+*.test
+.go-cache/
+
+# Docker files (do not include Dockerfile itself)
+docker-compose*
+
+# Gradle wrapper and scripts should NOT be ignored (keep gradlew, gradlew.bat, gradle-wrapper.jar, gradle-wrapper.properties)
+# .gradle/ is NOT ignored as per instructions
