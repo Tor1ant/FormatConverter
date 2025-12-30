@@ -29,6 +29,7 @@ dependencies {
     implementation 'com.documents4j:documents4j-local:1.1.13'
     implementation("com.documents4j:documents4j-transformer-msoffice-base:1.1.13")
     implementation("org.apache.pdfbox:pdfbox:3.0.6")
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
