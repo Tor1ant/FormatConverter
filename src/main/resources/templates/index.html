@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конвертер файлов</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
+        }
+
+        h2 {
+            color: #444;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2::before {
+            content: "📁";
+            font-size: 1.5rem;
+        }
+
+        .file-input {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .file-input input[type="file"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background: #f8f9ff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input input[type="file"]:hover {
+            background: #eef1ff;
+            border-color: #764ba2;
+        }
+
+        .multiple-files {
+            margin-top: 15px;
+        }
+
+        .file-list {
+            list-style: none;
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+
+        .file-list li {
+            padding: 8px;
+            background: #f0f4ff;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-list li::before {
+            content: "📄";
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .merge-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .merge-btn:hover {
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.3);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .loading::after {
+            content: "🔄";
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            color: #dc3545;
+            padding: 15px;
+            background: #ffe6e6;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            button {
+                min-width: 100%;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📱 Конвертер файлов</h1>
+
+    <div class="section">
+        <h2>Конвертировать в PDF</h2>
+        <form id="convertForm" enctype="multipart/form-data">
+            <div class="file-input">
+                <input type="file" id="singleFile" name="file"
+                       accept="image/*,.jpg,.jpeg,.png,.bmp,.gif" required>
+            </div>
+            <div class="button-group">
+                <button type="submit" id="convertBtn">Конвертировать в PDF</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Секция объединения PDF -->
+    <div class="section">
+        <h2>Объединить PDF файлы</h2>
+        <form id="mergeForm" enctype="multipart/form-data">
+            <div class="file-input">
+                <input type="file" id="multipleFiles" name="files"
+                       accept=".pdf" multiple required>
+                <div class="multiple-files">
+                    <p>Выбранные файлы:</p>
+                    <ul id="fileList" class="file-list"></ul>
+                </div>
+            </div>
+            <div class="button-group">
+                <button type="submit" id="mergeBtn" class="merge-btn">Объединить PDF</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="loading" class="loading">Обработка файла...</div>
+
+    <div id="error" class="error"></div>
+</div>
+
+<script th:inline="javascript">
+    document.getElementById('multipleFiles').addEventListener('change', function(e) {
+        const fileList = document.getElementById('fileList');
+        fileList.innerHTML = '';
+
+        Array.from(e.target.files).forEach(file => {
+            const li = document.createElement('li');
+            li.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            fileList.appendChild(li);
+        });
+    });
+
+    document.getElementById('convertForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        showLoading();
+        hideError();
+
+        try {
+            const response = await fetch('/toPdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const filename = getFilenameFromHeaders(response.headers);
+                downloadFile(blob, filename);
+            } else {
+                showError('Ошибка при конвертации файла');
+            }
+        } catch (error) {
+            showError('Ошибка соединения: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    });
+
+    document.getElementById('mergeForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        const files = document.getElementById('multipleFiles').files;
+
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+
+        showLoading();
+        hideError();
+
+        try {
+            const response = await fetch('/merge', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                downloadFile(blob, 'merged.pdf');
+            } else {
+                showError('Ошибка при объединении файлов');
+            }
+        } catch (error) {
+            showError('Ошибка соединения: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    });
+
+    function getFilenameFromHeaders(headers) {
+        const disposition = headers.get('Content-Disposition');
+        if (disposition && disposition.includes('filename=')) {
+            let filename = disposition.split('filename=')[1];
+            filename = filename.replace(/"/g, '');
+            return decodeURIComponent(filename);
+        }
+        return 'converted.pdf';
+    }
+
+    function downloadFile(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }
+
+    function showLoading() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('convertBtn').disabled = true;
+        document.getElementById('mergeBtn').disabled = true;
+    }
+
+    function hideLoading() {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('convertBtn').disabled = false;
+        document.getElementById('mergeBtn').disabled = false;
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    function hideError() {
+        document.getElementById('error').style.display = 'none';
+    }
+</script>
+</body>
+</html>
