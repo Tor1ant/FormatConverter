@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -82,6 +82,12 @@
         .file-input input[type="file"]:hover {
             background: #eef1ff;
             border-color: #764ba2;
+        }
+
+        .hint {
+            margin-top: 8px;
+            color: #777;
+            font-size: 14px;
         }
 
         .multiple-files {
@@ -198,7 +204,9 @@
         <form id="convertForm" enctype="multipart/form-data">
             <div class="file-input">
                 <input type="file" id="singleFile" name="file"
-                       accept="image/*,.jpg,.jpeg,.png,.bmp,.gif" required>
+                       accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.png,.gif,.bmp,.tif,.tiff"
+                       required>
+                <p class="hint" id="convertHint">Поддерживаются изображения JPEG, PNG, GIF, BMP и TIFF.</p>
             </div>
             <div class="button-group">
                 <button type="submit" id="convertBtn">Конвертировать в PDF</button>
@@ -212,7 +220,8 @@
         <form id="mergeForm" enctype="multipart/form-data">
             <div class="file-input">
                 <input type="file" id="multipleFiles" name="files"
-                       accept=".pdf" multiple required>
+                       accept="application/pdf,.pdf" multiple required>
+                <p class="hint" id="mergeHint">Выберите два или более PDF-файла — страницы будут идти в порядке выбора.</p>
                 <div class="multiple-files">
                     <p>Выбранные файлы:</p>
                     <ul id="fileList" class="file-list"></ul>
@@ -230,23 +239,40 @@
 </div>
 
 <script th:inline="javascript">
+    // Лимиты приходят с сервера (spring.servlet.multipart.*), чтобы не гонять заведомо
+    // слишком большие файлы по сети и показывать пользователю актуальные значения.
+    const MAX_FILE_SIZE = /*[[${maxFileSize}]]*/ 52428800;
+    const MAX_REQUEST_SIZE = /*[[${maxRequestSize}]]*/ 209715200;
+
+    document.getElementById('convertHint').textContent +=
+        ' Максимальный размер файла — ' + formatSize(MAX_FILE_SIZE) + '.';
+    document.getElementById('mergeHint').textContent +=
+        ' До ' + formatSize(MAX_FILE_SIZE) + ' на файл и ' + formatSize(MAX_REQUEST_SIZE) + ' суммарно.';
+
     document.getElementById('multipleFiles').addEventListener('change', function(e) {
         const fileList = document.getElementById('fileList');
         fileList.innerHTML = '';
 
         Array.from(e.target.files).forEach(file => {
             const li = document.createElement('li');
-            li.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            li.textContent = file.name + ' (' + formatSize(file.size) + ')';
             fileList.appendChild(li);
         });
     });
 
     document.getElementById('convertForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
+        hideError();
+
+        const file = document.getElementById('singleFile').files[0];
+        if (!file || !checkSizes([file])) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
 
         showLoading();
-        hideError();
 
         try {
             const response = await fetch('/toPdf', {
@@ -256,10 +282,10 @@
 
             if (response.ok) {
                 const blob = await response.blob();
-                const filename = getFilenameFromHeaders(response.headers);
+                const filename = getFilenameFromHeaders(response.headers, replaceExtension(file.name, 'pdf'));
                 downloadFile(blob, filename);
             } else {
-                showError('Ошибка при конвертации файла');
+                showError(await errorMessage(response, 'Ошибка при конвертации файла'));
             }
         } catch (error) {
             showError('Ошибка соединения: ' + error.message);
@@ -270,15 +296,21 @@
 
     document.getElementById('mergeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const formData = new FormData();
-        const files = document.getElementById('multipleFiles').files;
+        hideError();
 
-        for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
+        const files = Array.from(document.getElementById('multipleFiles').files);
+        if (files.length < 2) {
+            showError('Для объединения выберите как минимум два PDF-файла');
+            return;
+        }
+        if (!checkSizes(files)) {
+            return;
         }
 
+        const formData = new FormData();
+        files.forEach(file => formData.append('files', file));
+
         showLoading();
-        hideError();
 
         try {
             const response = await fetch('/merge', {
@@ -288,9 +320,9 @@
 
             if (response.ok) {
                 const blob = await response.blob();
-                downloadFile(blob, 'merged.pdf');
+                downloadFile(blob, getFilenameFromHeaders(response.headers, 'merged.pdf'));
             } else {
-                showError('Ошибка при объединении файлов');
+                showError(await errorMessage(response, 'Ошибка при объединении файлов'));
             }
         } catch (error) {
             showError('Ошибка соединения: ' + error.message);
@@ -299,14 +331,77 @@
         }
     });
 
-    function getFilenameFromHeaders(headers) {
-        const disposition = headers.get('Content-Disposition');
-        if (disposition && disposition.includes('filename=')) {
-            let filename = disposition.split('filename=')[1];
-            filename = filename.replace(/"/g, '');
-            return decodeURIComponent(filename);
+    // Проверяет лимиты до отправки: слишком большой запрос сервер всё равно отклонит,
+    // но зачем ждать окончания загрузки, чтобы это узнать.
+    function checkSizes(files) {
+        let total = 0;
+        for (const file of files) {
+            if (file.size > MAX_FILE_SIZE) {
+                showError('Файл «' + file.name + '» слишком большой (' + formatSize(file.size) + '). '
+                    + 'Максимальный размер файла — ' + formatSize(MAX_FILE_SIZE) + '.');
+                return false;
+            }
+            total += file.size;
         }
-        return 'converted.pdf';
+        if (total > MAX_REQUEST_SIZE) {
+            showError('Общий размер файлов (' + formatSize(total) + ') превышает допустимый — '
+                + formatSize(MAX_REQUEST_SIZE) + '.');
+            return false;
+        }
+        return true;
+    }
+
+    // Сервер отвечает на ошибки в формате RFC 9457 (application/problem+json),
+    // человекочитаемое сообщение лежит в поле detail.
+    async function errorMessage(response, fallback) {
+        try {
+            const problem = await response.json();
+            if (problem && problem.detail) {
+                return problem.detail;
+            }
+        } catch (ignored) {
+            // тело ответа не JSON — покажем общее сообщение
+        }
+        return fallback + ' (HTTP ' + response.status + ')';
+    }
+
+    function getFilenameFromHeaders(headers, fallback) {
+        const disposition = headers.get('Content-Disposition') || '';
+
+        // Имена не из ASCII сервер кодирует по RFC 5987: filename*=UTF-8''%D1%84...
+        const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (encoded) {
+            try {
+                return decodeURIComponent(encoded[1].trim());
+            } catch (ignored) {
+                // некорректная кодировка — пробуем обычный вариант ниже
+            }
+        }
+
+        const plain = disposition.match(/filename="([^"]*)"|filename=([^;]+)/);
+        if (plain) {
+            const name = (plain[1] !== undefined ? plain[1] : plain[2]).trim();
+            if (name && !name.startsWith('=?')) {
+                return name;
+            }
+        }
+        return fallback;
+    }
+
+    function replaceExtension(fileName, extension) {
+        const dot = fileName.lastIndexOf('.');
+        const base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        return base + '.' + extension;
+    }
+
+    function formatSize(bytes) {
+        if (bytes >= 1024 * 1024) {
+            return (bytes / (1024 * 1024)).toFixed(bytes % (1024 * 1024) === 0 ? 0 : 1) + ' МБ';
+        }
+        if (bytes >= 1024) {
+            return (bytes / 1024).toFixed(1) + ' КБ';
+        }
+        return bytes + ' Б';
     }
 
     function downloadFile(blob, filename) {
