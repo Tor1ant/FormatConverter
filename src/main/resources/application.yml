@@ -1,1 +1,16 @@
-spring.application.name=FormatConverter
+spring:
+  application:
+    name: FormatConverter
+  servlet:
+    multipart:
+      # Лимиты загрузки. По умолчанию Spring Boot разрешает всего 1 МБ на файл —
+      # этого не хватает даже для одного фото с телефона. Значения можно переопределить
+      # переменными окружения MAX_FILE_SIZE и MAX_REQUEST_SIZE (например, "100MB").
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:200MB}
+
+server:
+  tomcat:
+    # Tomcat должен «дочитать» отклонённый слишком большой запрос, иначе клиент вместо
+    # ответа 413 получает обрыв соединения. Держим значение равным max-request-size.
+    max-swallow-size: ${MAX_REQUEST_SIZE:200MB}
